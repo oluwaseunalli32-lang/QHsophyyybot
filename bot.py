@@ -19,10 +19,13 @@ from dotenv import load_dotenv
 load_dotenv()
 TOKEN = os.getenv("BOT_TOKEN")
 
-# Bot identity - Updated for your bot
-BOT_USERNAME = "QHsophyyybot"  # Your bot's username
-BOT_NAME = "QH"  # Display name
-SUPPORT_USERNAME = "sophylove777"  # Changed to your username
+# ============================================================
+# ⚠️ CRITICAL: These are the ONLY places where usernames are set
+# ============================================================
+BOT_USERNAME = "QHsophyyybot"  # Your bot's Telegram username
+BOT_DISPLAY_NAME = "QH"  # Display name shown to users
+SUPPORT_USERNAME = "sophylove777"  # YOUR support username - NOT hulian1688
+# ============================================================
 
 # Enable logging
 logging.basicConfig(
@@ -33,7 +36,6 @@ logger = logging.getLogger(__name__)
 
 # ========== DATA ==========
 # Pre-defined search categories with sample results
-# Replace these with real data or API integration later
 SEARCH_CATEGORIES = {
     "热搜排行": [
         {"name": "🔥 今日热门话题", "link": "https://t.me/trending"},
@@ -75,7 +77,7 @@ def search_by_keyword(keyword):
         for item in items:
             if keyword_lower in item["name"].lower():
                 results.append(item)
-    return results[:10]  # Limit to 10 results
+    return results[:10]
 
 def format_search_results(results, query):
     """Format search results for display"""
@@ -88,7 +90,7 @@ def format_search_results(results, query):
         message += f"{i}. [{res['name']}]({res['link']})\n"
 
     message += f"\n━━━━━━━━━━━━━━━━━\n"
-    message += f"📌 *Powered by {BOT_NAME}* (@{BOT_USERNAME})\n"
+    message += f"📌 *Powered by {BOT_DISPLAY_NAME}* (@{BOT_USERNAME})\n"
     message += f"💎 *需要更多帮助？* @{SUPPORT_USERNAME}"
     return message
 
@@ -98,11 +100,11 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     first_name = user.first_name or "用户"
 
-    # Welcome message replicating the reference bot's style
+    # Welcome message - ALL references use SUPPORT_USERNAME (sophylove777)
     welcome_text = f"""
 👋 *Hi: {first_name}*
 
-*欢迎使用{BOT_NAME}搜索机器人* 🔍
+*欢迎使用{BOT_DISPLAY_NAME}搜索机器人* 🔍
 
 搜一搜轻松发现频道、群组、资讯与热门内容。
 
@@ -150,7 +152,6 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     data = query.data
 
     if data.startswith("category_"):
-        # Handle category search
         category = data.replace("category_", "")
         results = search_by_category(category)
 
@@ -163,7 +164,6 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await query.edit_message_text(f"❌ 没有找到 '{category}' 分类的内容")
 
     elif data == "my_info":
-        # Show user information
         user = update.effective_user
         info_text = f"""
 📝 *用户信息*
@@ -177,7 +177,6 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 *使用统计：*
 📊 搜索次数：{context.user_data.get('search_count', 0)}
-📌 已收藏：{context.user_data.get('favorites_count', 0)}
 
 💎 *升级高级会员享受更多特权！*
 联系客服：@{SUPPORT_USERNAME}
@@ -189,7 +188,6 @@ async def inline_search(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.inline_query.query.strip()
 
     if not query:
-        # Show prompt when no keyword is entered
         prompt_text = "💡 请输入关键词开始搜索！\n\n例如：资讯、军事、旅游、福利"
         results = [
             {
@@ -206,11 +204,9 @@ async def inline_search(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.inline_query.answer(results)
         return
 
-    # Search by keyword
     results = search_by_keyword(query)
 
     if not results:
-        # No results found
         no_results = [
             {
                 "type": "article",
@@ -226,7 +222,6 @@ async def inline_search(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.inline_query.answer(no_results)
         return
 
-    # Format inline results
     inline_results = []
     for i, res in enumerate(results[:10], 1):
         inline_results.append(
@@ -259,12 +254,10 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     text = update.message.text.strip()
 
-    # Count searches
     if "search_count" not in context.user_data:
         context.user_data["search_count"] = 0
     context.user_data["search_count"] += 1
 
-    # Search by keyword
     results = search_by_keyword(text)
 
     if results:
@@ -273,7 +266,6 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             formatted, parse_mode="Markdown", disable_web_page_preview=True
         )
     else:
-        # No results found - suggest categories
         suggest_text = f"""
 🔍 没有找到与 '{text}' 相关的结果
 
@@ -339,7 +331,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def about(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle /about command"""
     about_text = f"""
-🤖 *关于{BOT_NAME}搜索机器人*
+🤖 *关于{BOT_DISPLAY_NAME}搜索机器人*
 
 ━━━━━━━━━━━━━━━━━━━━━
 
@@ -372,39 +364,29 @@ def main():
         logger.error("❌ BOT_TOKEN not set!")
         return
 
-    logger.info(f"🚀 Starting {BOT_NAME} Bot (@{BOT_USERNAME})...")
+    logger.info(f"🚀 Starting {BOT_DISPLAY_NAME} Bot (@{BOT_USERNAME})...")
+    logger.info(f"📞 Support: @{SUPPORT_USERNAME}")
 
     try:
-        # Create application
         app = Application.builder().token(TOKEN).build()
 
-        # Add command handlers
         app.add_handler(CommandHandler("start", start))
         app.add_handler(CommandHandler("help", help_command))
         app.add_handler(CommandHandler("about", about))
 
-        # Add inline query handler
         app.add_handler(InlineQueryHandler(inline_search))
-
-        # Add message handler (for text input)
         app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, message_handler))
-
-        # Add button callback handler
         app.add_handler(CallbackQueryHandler(button_callback))
-
-        # Add error handler
         app.add_error_handler(error_handler)
 
         logger.info("✅ Bot is ready!")
         logger.info("⏳ Listening for messages...")
 
-        # Start polling
         app.run_polling(poll_interval=1.0, timeout=30, drop_pending_updates=True)
 
     except Exception as e:
         logger.error(f"❌ Failed to start: {e}")
         import traceback
-
         traceback.print_exc()
         raise
 
