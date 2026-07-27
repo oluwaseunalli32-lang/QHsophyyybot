@@ -70,8 +70,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 ━━━━━━━━━━━━━━━━━━━━━
 
 📝 *如何使用：*
-• `/搜索 [关键词]` 查找资源
-• 例如：`/搜索 加密货币`
+• `/search [关键词]` 查找资源
+• 例如：`/search 加密货币`
+• 直接输入 `@{BOT_USERNAME} [关键词]` 快速搜索
 
 ━━━━━━━━━━━━━━━━━━━━━
 
@@ -85,14 +86,14 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(welcome_text, reply_markup=reply_markup, parse_mode="Markdown")
 
 async def search(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """处理 /搜索 命令"""
+    """处理 /search 命令"""
     query = ' '.join(context.args)
     
     if not query:
         await update.message.reply_text(
             f"❌ *请提供搜索关键词！*\n\n"
-            f"使用方法：`/搜索 [关键词]`\n"
-            f"例如：`/搜索 游戏`\n\n"
+            f"使用方法：`/search [关键词]`\n"
+            f"例如：`/search 游戏`\n\n"
             f"💡 或使用内联搜索：`@{BOT_USERNAME} [关键词]`",
             parse_mode="Markdown"
         )
@@ -154,8 +155,8 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 *📌 基本命令：*
 /start - 欢迎页面
-/搜索 [关键词] - 搜索资源
-/帮助 - 显示帮助信息
+/search [关键词] - 搜索资源
+/help - 显示帮助信息
 
 ━━━━━━━━━━━━━━━━━━━━━
 
@@ -169,6 +170,56 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 *🤖 机器人：* @{BOT_USERNAME}
 """
     await update.message.reply_text(help_text, parse_mode="Markdown")
+
+async def about(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """发送关于信息"""
+    about_text = f"""
+🤖 *关于 QH 搜索机器人*
+
+━━━━━━━━━━━━━━━━━━━━━
+
+*强大的 Telegram 资源搜索引擎*
+*版本：* 1.0.0
+*用户名：* @{BOT_USERNAME}
+*开发者：* @hulian1688
+
+━━━━━━━━━━━━━━━━━━━━━
+
+*✨ 功能特色：*
+✅ 即时频道和群组搜索
+✅ 热门内容发现
+✅ 内联搜索支持
+✅ 24/7 全天候运行
+
+*❤️ 为Telegram社区打造*
+"""
+    await update.message.reply_text(about_text, parse_mode="Markdown")
+
+async def premium(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """发送高级服务信息"""
+    premium_text = f"""
+💎 *QH 高级会员服务*
+
+━━━━━━━━━━━━━━━━━━━━━
+
+*🚀 会员特权：*
+
+✅ *高级搜索* - 无限次搜索，深度资源扫描
+✅ *独家访问* - 私密频道，VIP专属内容
+✅ *会员支持* - 24小时客服，定制搜索
+
+━━━━━━━━━━━━━━━━━━━━━
+
+*💳 咨询价格：*
+📞 @hulian1688
+
+*立即升级高级会员！* 🚀
+"""
+    keyboard = [
+        [InlineKeyboardButton("💬 联系客服", url="https://t.me/hulian1688")],
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await update.message.reply_text(premium_text, reply_markup=reply_markup, parse_mode="Markdown")
 
 async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """处理按钮回调"""
@@ -199,13 +250,16 @@ def main():
         app = Application.builder().token(TOKEN).build()
         logger.info("✅ Application built successfully")
         
-        # 添加命令处理器
+        # 添加命令处理器 (使用英文命令名)
         app.add_handler(CommandHandler("start", start))
-        app.add_handler(CommandHandler("搜索", search))
-        app.add_handler(CommandHandler("search", search))
-        app.add_handler(CommandHandler("help", help_command))
-        app.add_handler(CommandHandler("帮助", help_command))
+        app.add_handler(CommandHandler("search", search))      # /search
+        app.add_handler(CommandHandler("help", help_command))  # /help
+        app.add_handler(CommandHandler("about", about))        # /about
+        app.add_handler(CommandHandler("premium", premium))    # /premium
+        
+        # 添加内联搜索处理器
         app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, inline_search))
+        app.add_handler(CallbackQueryHandler(button_callback))
         app.add_error_handler(error_handler)
         
         logger.info("⏳ 机器人正在监听消息...")
