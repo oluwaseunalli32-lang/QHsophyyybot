@@ -1,45 +1,77 @@
 import os
 import sys
 import logging
+import json
+from datetime import datetime
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes, CallbackQueryHandler
+from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes, CallbackQueryHandler, InlineQueryHandler
 from dotenv import load_dotenv
 
-# Print Python version for debugging
-print(f"🐍 Python version: {sys.version}")
-print(f"📂 Python executable: {sys.executable}")
-
-# 加载环境变量
+# Load environment variables
 load_dotenv()
 TOKEN = os.getenv("BOT_TOKEN")
 
-# 机器人身份信息
+# Bot identity
 BOT_USERNAME = "sophylove777bot"
 BOT_NAME = "QH"
+SUPPORT_USERNAME = "hulian1688"  # Keep as in reference
 
-# 启用日志记录
+# Enable logging
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     level=logging.INFO
 )
 logger = logging.getLogger(__name__)
 
-# ========== 搜索功能 ==========
-def search_resources(query):
-    """搜索功能 - 模拟数据，替换为真实API"""
-    mock_results = [
-        {"name": f"📡 {query} 频道精选", "link": f"https://t.me/example1_{query}"},
-        {"name": f"👥 {query} 交流群组", "link": f"https://t.me/example2_{query}"},
-        {"name": f"📰 {query} 最新资讯", "link": f"https://t.me/example3_{query}"},
-        {"name": f"💎 {query} 优质资源", "link": f"https://t.me/example4_{query}"},
-        {"name": f"🔍 {query} 深度搜索", "link": f"https://t.me/example5_{query}"},
-    ]
-    return mock_results[:5]
+# ========== DATA ==========
+# Pre-defined search categories with sample results
+SEARCH_CATEGORIES = {
+    "热搜排行": [
+        {"name": "🔥 今日热门话题", "link": "https://t.me/trending"},
+        {"name": "📊 实时热搜榜", "link": "https://t.me/hotsearch"},
+        {"name": "⭐ 本周热门推荐", "link": "https://t.me/weeklyhot"},
+    ],
+    "资讯": [
+        {"name": "📰 新闻资讯频道", "link": "https://t.me/news"},
+        {"name": "📡 实时资讯群组", "link": "https://t.me/liveinfo"},
+        {"name": "📺 视频资讯推荐", "link": "https://t.me/videonews"},
+    ],
+    "军事": [
+        {"name": "🎖️ 军事频道精选", "link": "https://t.me/military"},
+        {"name": "🛡️ 国防资讯群组", "link": "https://t.me/defense"},
+        {"name": "⚔️ 军事历史资源", "link": "https://t.me/militaryhistory"},
+    ],
+    "旅游": [
+        {"name": "✈️ 旅游攻略频道", "link": "https://t.me/travel"},
+        {"name": "🏝️ 旅游景点推荐", "link": "https://t.me/travelspots"},
+        {"name": "🧳 旅行日记群组", "link": "https://t.me/traveldiary"},
+    ],
+    "福利": [
+        {"name": "🎁 福利资源频道", "link": "https://t.me/freebies"},
+        {"name": "💝 优惠活动群组", "link": "https://t.me/deals"},
+        {"name": "🎊 限时福利推荐", "link": "https://t.me/limitedoffers"},
+    ],
+}
 
-def format_results(results, query):
-    """格式化搜索结果为中文消息"""
+# ========== SEARCH FUNCTIONS ==========
+def search_by_category(category):
+    """Search by predefined category"""
+    return SEARCH_CATEGORIES.get(category, [])
+
+def search_by_keyword(keyword):
+    """Search by keyword across all categories"""
+    results = []
+    keyword_lower = keyword.lower()
+    for category, items in SEARCH_CATEGORIES.items():
+        for item in items:
+            if keyword_lower in item['name'].lower():
+                results.append(item)
+    return results[:10]  # Limit to 10 results
+
+def format_search_results(results, query):
+    """Format search results for display"""
     if not results:
-        return f"🔍 未找到与 '{query}' 相关的结果\n\n💡 联系 @hulian1688 获取高级搜索服务！"
+        return f"🔍 没有找到与 '{query}' 相关的结果\n\n💡 试试其他关键词吧！"
     
     message = f"🔍 *搜索结果：{query}*\n"
     message += f"━━━━━━━━━━━━━━━━━\n\n"
@@ -47,79 +79,140 @@ def format_results(results, query):
         message += f"{i}. [{res['name']}]({res['link']})\n"
     
     message += f"\n━━━━━━━━━━━━━━━━━\n"
-    message += f"📌 *Powered by {BOT_NAME} Bot* (@{BOT_USERNAME})\n"
-    message += f"💎 *需要更多结果？* 联系 @hulian1688"
+    message += f"💎 *需要更多帮助？* @{SUPPORT_USERNAME}"
     return message
 
-# ========== 机器人命令处理 ==========
+# ========== BOT COMMAND HANDLERS ==========
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """发送欢迎消息"""
+    """Handle /start - Welcome message with inline keyboard"""
     user = update.effective_user
+    first_name = user.first_name or "用户"
+    
+    # Welcome message matching the reference
     welcome_text = f"""
-👋 *欢迎使用 {BOT_NAME} 搜索机器人，{user.first_name}！*
+👋 *Hi: {first_name}*
 
-🔍 *全球号商·搜一搜 资源搜索*
+*欢迎使用全能资源搜搜* 🔍
 
-━━━━━━━━━━━━━━━━━━━━━
+中文搜索，可以帮你找到有趣的内容！
 
-✨ *我能帮你做什么：*
-• 📡 发现频道和群组
-• 🔎 搜索资讯与热门内容
-• 💎 国内外App账号批发
+🔥 *热搜排行*
 
-━━━━━━━━━━━━━━━━━━━━━
+📌 *快捷分类：*
+资讯 | 军事 | 旅游 | 福利
 
-📝 *如何使用：*
-• `/search [关键词]` 查找资源
-• 例如：`/search 加密货币`
-• 直接输入 `@{BOT_USERNAME} [关键词]` 快速搜索
+💡 *请输入关键词即可开始！*
 
 ━━━━━━━━━━━━━━━━━━━━━
 
-💎 *官方客服：* @hulian1688
+👤 *您好，老板！我是人工客服 @{SUPPORT_USERNAME}，您需要什么业务？*
 """
+    
+    # Create inline keyboard buttons
     keyboard = [
-        [InlineKeyboardButton("🔍 立即搜索", switch_inline_query_current_chat="")],
-        [InlineKeyboardButton("💎 官方客服", url="https://t.me/hulian1688")],
+        [
+            InlineKeyboardButton("🔥 热搜排行", callback_data="category_热搜排行"),
+            InlineKeyboardButton("📰 资讯", callback_data="category_资讯"),
+        ],
+        [
+            InlineKeyboardButton("🎖️ 军事", callback_data="category_军事"),
+            InlineKeyboardButton("✈️ 旅游", callback_data="category_旅游"),
+        ],
+        [
+            InlineKeyboardButton("🎁 福利", callback_data="category_福利"),
+            InlineKeyboardButton("📝 我的信息", callback_data="my_info"),
+        ],
+        [
+            InlineKeyboardButton("💬 联系客服", url=f"https://t.me/{SUPPORT_USERNAME}"),
+        ],
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
+    
     await update.message.reply_text(welcome_text, reply_markup=reply_markup, parse_mode="Markdown")
 
-async def search(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """处理 /search 命令"""
-    query = ' '.join(context.args)
+async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle button callbacks"""
+    query = update.callback_query
+    await query.answer()
     
-    if not query:
-        await update.message.reply_text(
-            f"❌ *请提供搜索关键词！*\n\n"
-            f"使用方法：`/search [关键词]`\n"
-            f"例如：`/search 游戏`\n\n"
-            f"💡 或使用内联搜索：`@{BOT_USERNAME} [关键词]`",
-            parse_mode="Markdown"
-        )
-        return
+    data = query.data
     
-    searching_msg = await update.message.reply_text(f"🔎 *正在搜索 '{query}'...*", parse_mode="Markdown")
+    if data.startswith("category_"):
+        # Handle category search
+        category = data.replace("category_", "")
+        results = search_by_category(category)
+        
+        if results:
+            formatted = format_search_results(results, category)
+            await query.edit_message_text(formatted, parse_mode="Markdown", disable_web_page_preview=True)
+        else:
+            await query.edit_message_text(f"❌ 没有找到 '{category}' 分类的内容")
     
-    try:
-        results = search_resources(query)
-        formatted = format_results(results, query)
-        await searching_msg.edit_text(formatted, parse_mode="Markdown", disable_web_page_preview=True)
-    except Exception as e:
-        logger.error(f"搜索错误: {e}")
-        await searching_msg.edit_text(
-            "❌ *搜索出错啦！*\n\n请稍后重试或联系客服。\n💎 客服：@hulian1688",
-            parse_mode="Markdown"
-        )
+    elif data == "my_info":
+        # Show user information
+        user = update.effective_user
+        info_text = f"""
+📝 *用户信息*
+
+👤 *姓名：* {user.first_name or 'N/A'}
+🆔 *用户名：* @{user.username or '未设置'}
+📱 *ID：* {user.id}
+🗓️ *首次使用：* {datetime.now().strftime('%Y-%m-%d %H:%M')}
+
+━━━━━━━━━━━━━━━━━━━━━
+
+*使用统计：*
+📊 搜索次数：{context.user_data.get('search_count', 0)}
+📌 已收藏：{context.user_data.get('favorites_count', 0)}
+
+💎 *升级高级会员享受更多特权！*
+联系客服：@{SUPPORT_USERNAME}
+"""
+        await query.edit_message_text(info_text, parse_mode="Markdown")
 
 async def inline_search(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """处理内联搜索"""
-    query = update.inline_query.query
+    """Handle inline search (user types keyword)"""
+    query = update.inline_query.query.strip()
+    
     if not query:
+        # Show prompt when no keyword is entered
+        prompt_text = "💡 请输入关键词开始搜索！\n\n例如：资讯、军事、旅游、福利"
+        results = [
+            {
+                "type": "article",
+                "id": "prompt",
+                "title": "🔍 输入关键词搜索",
+                "description": "输入关键词查找频道和群组",
+                "input_message_content": {
+                    "message_text": prompt_text,
+                    "parse_mode": "Markdown"
+                }
+            }
+        ]
+        await update.inline_query.answer(results)
         return
     
-    results = search_resources(query)
+    # Search by keyword
+    results = search_by_keyword(query)
     
+    if not results:
+        # No results found
+        no_results = [
+            {
+                "type": "article",
+                "id": "no_results",
+                "title": "❌ 没有找到结果",
+                "description": f"没有找到与 '{query}' 相关的内容",
+                "input_message_content": {
+                    "message_text": f"🔍 没有找到与 '{query}' 相关的结果\n\n💡 试试其他关键词吧！",
+                    "parse_mode": "Markdown"
+                }
+            }
+        ]
+        await update.inline_query.answer(no_results)
+        return
+    
+    # Format inline results
     inline_results = []
     for i, res in enumerate(results[:10], 1):
         inline_results.append(
@@ -127,18 +220,19 @@ async def inline_search(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 "type": "article",
                 "id": str(i),
                 "title": f"📌 {res['name']}",
-                "description": f"由 {BOT_NAME} 机器人找到",
+                "description": f"搜索结果 - {query}",
                 "input_message_content": {
-                    "message_text": f"🔍 *找到结果：*\n\n"
+                    "message_text": f"🔍 *搜索结果：*\n\n"
                                     f"📌 *{res['name']}*\n"
                                     f"🔗 {res['link']}\n\n"
-                                    f"💎 *更多资源：* @hulian1688",
+                                    f"💎 *需要更多？* 联系 @{SUPPORT_USERNAME}",
                     "parse_mode": "Markdown"
                 },
                 "reply_markup": {
                     "inline_keyboard": [
                         [{"text": "🔗 打开链接", "url": res['link']}],
-                        [{"text": "🔄 更多结果", "switch_inline_query": query}],
+                        [{"text": "🔄 更多搜索", "switch_inline_query": query}],
+                        [{"text": "💬 联系客服", "url": f"https://t.me/{SUPPORT_USERNAME}"}],
                     ]
                 }
             }
@@ -146,125 +240,147 @@ async def inline_search(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     await update.inline_query.answer(inline_results)
 
+async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle regular text messages (not commands)"""
+    user = update.effective_user
+    text = update.message.text.strip()
+    
+    # Count searches
+    if 'search_count' not in context.user_data:
+        context.user_data['search_count'] = 0
+    context.user_data['search_count'] += 1
+    
+    # Search by keyword
+    results = search_by_keyword(text)
+    
+    if results:
+        formatted = format_search_results(results, text)
+        await update.message.reply_text(formatted, parse_mode="Markdown", disable_web_page_preview=True)
+    else:
+        # No results found - suggest categories
+        suggest_text = f"""
+🔍 没有找到与 '{text}' 相关的结果
+
+💡 *试试这些热门分类：*
+• 资讯 - 最新新闻动态
+• 军事 - 军事相关内容
+• 旅游 - 旅游攻略推荐
+• 福利 - 各种福利资源
+
+📌 *或直接点击下方分类按钮快速查找！*
+
+💎 *需要帮助？* @{SUPPORT_USERNAME}
+"""
+        keyboard = [
+            [
+                InlineKeyboardButton("🔥 热搜排行", callback_data="category_热搜排行"),
+                InlineKeyboardButton("📰 资讯", callback_data="category_资讯"),
+            ],
+            [
+                InlineKeyboardButton("🎖️ 军事", callback_data="category_军事"),
+                InlineKeyboardButton("✈️ 旅游", callback_data="category_旅游"),
+            ],
+            [
+                InlineKeyboardButton("🎁 福利", callback_data="category_福利"),
+            ],
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await update.message.reply_text(suggest_text, reply_markup=reply_markup, parse_mode="Markdown")
+
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """发送帮助信息"""
-    help_text = f"""
-📖 *QH 机器人使用帮助*
+    """Handle /help command"""
+    help_text = """
+📖 *使用帮助*
 
 ━━━━━━━━━━━━━━━━━━━━━
 
-*📌 基本命令：*
-/start - 欢迎页面
-/search [关键词] - 搜索资源
-/help - 显示帮助信息
+*基本功能：*
+• 输入关键词搜索频道和群组
+• 点击下方分类按钮快速查找
+• 使用内联搜索 @sophylove777bot [关键词]
 
 ━━━━━━━━━━━━━━━━━━━━━
 
-*⚡ 使用技巧：*
-• 使用具体关键词获得更好结果
-• 内联搜索：`@{BOT_USERNAME} [关键词]`
+*支持分类：*
+📰 资讯 - 新闻资讯
+🎖️ 军事 - 军事内容
+✈️ 旅游 - 旅游攻略
+🎁 福利 - 福利资源
 
 ━━━━━━━━━━━━━━━━━━━━━
 
-*📞 联系我们：* @hulian1688
-*🤖 机器人：* @{BOT_USERNAME}
+*高级服务：*
+💎 无限搜索
+💎 独家资源
+💎 优先支持
+
+📞 *联系客服：* @{SUPPORT_USERNAME}
 """
     await update.message.reply_text(help_text, parse_mode="Markdown")
 
 async def about(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """发送关于信息"""
-    about_text = f"""
-🤖 *关于 QH 搜索机器人*
+    """Handle /about command"""
+    about_text = """
+🤖 *关于全能资源搜搜*
 
 ━━━━━━━━━━━━━━━━━━━━━
 
-*强大的 Telegram 资源搜索引擎*
 *版本：* 1.0.0
-*用户名：* @{BOT_USERNAME}
-*开发者：* @hulian1688
+*开发者：* @{SUPPORT_USERNAME}
+*平台：* Telegram
 
 ━━━━━━━━━━━━━━━━━━━━━
 
-*✨ 功能特色：*
-✅ 即时频道和群组搜索
-✅ 热门内容发现
+*功能特色：*
+✅ 智能搜索频道和群组
+✅ 热门分类快速查找
 ✅ 内联搜索支持
 ✅ 24/7 全天候运行
+
+━━━━━━━━━━━━━━━━━━━━━
 
 *❤️ 为Telegram社区打造*
 """
     await update.message.reply_text(about_text, parse_mode="Markdown")
 
-async def premium(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """发送高级服务信息"""
-    premium_text = f"""
-💎 *QH 高级会员服务*
-
-━━━━━━━━━━━━━━━━━━━━━
-
-*🚀 会员特权：*
-
-✅ *高级搜索* - 无限次搜索，深度资源扫描
-✅ *独家访问* - 私密频道，VIP专属内容
-✅ *会员支持* - 24小时客服，定制搜索
-
-━━━━━━━━━━━━━━━━━━━━━
-
-*💳 咨询价格：*
-📞 @hulian1688
-
-*立即升级高级会员！* 🚀
-"""
-    keyboard = [
-        [InlineKeyboardButton("💬 联系客服", url="https://t.me/hulian1688")],
-    ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    await update.message.reply_text(premium_text, reply_markup=reply_markup, parse_mode="Markdown")
-
-async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """处理按钮回调"""
-    query = update.callback_query
-    await query.answer()
-    
-    if query.data == "help":
-        await help_command(update, context)
-
 async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """记录错误日志"""
-    logger.error(f"更新 {update} 导致错误 {context.error}")
+    """Log errors"""
+    logger.error(f"Update {update} caused error {context.error}")
 
-# ========== 主程序 ==========
+# ========== MAIN ==========
 def main():
-    """启动机器人"""
-    logger.info(f"🐍 Python version: {sys.version}")
-    
+    """Start the bot"""
     if not TOKEN:
-        logger.error("❌ 未设置 BOT_TOKEN 环境变量！")
+        logger.error("❌ BOT_TOKEN not set!")
         return
     
-    logger.info(f"🚀 正在启动 {BOT_NAME} Bot (@{BOT_USERNAME})...")
-    logger.info(f"🔑 Token starts with: {TOKEN[:10]}...")
+    logger.info(f"🚀 Starting {BOT_NAME} Bot (@{BOT_USERNAME})...")
     
     try:
-        # 创建应用
+        # Create application
         app = Application.builder().token(TOKEN).build()
-        logger.info("✅ Application built successfully")
         
-        # 添加命令处理器 (使用英文命令名)
+        # Add command handlers
         app.add_handler(CommandHandler("start", start))
-        app.add_handler(CommandHandler("search", search))      # /search
-        app.add_handler(CommandHandler("help", help_command))  # /help
-        app.add_handler(CommandHandler("about", about))        # /about
-        app.add_handler(CommandHandler("premium", premium))    # /premium
+        app.add_handler(CommandHandler("help", help_command))
+        app.add_handler(CommandHandler("about", about))
         
-        # 添加内联搜索处理器
-        app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, inline_search))
+        # Add inline query handler
+        app.add_handler(InlineQueryHandler(inline_search))
+        
+        # Add message handler (for text input)
+        app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, message_handler))
+        
+        # Add button callback handler
         app.add_handler(CallbackQueryHandler(button_callback))
+        
+        # Add error handler
         app.add_error_handler(error_handler)
         
-        logger.info("⏳ 机器人正在监听消息...")
+        logger.info("✅ Bot is ready!")
+        logger.info("⏳ Listening for messages...")
         
-        # 启动轮询
+        # Start polling
         app.run_polling(
             poll_interval=1.0,
             timeout=30,
@@ -272,7 +388,7 @@ def main():
         )
         
     except Exception as e:
-        logger.error(f"❌ 启动失败: {e}")
+        logger.error(f"❌ Failed to start: {e}")
         import traceback
         traceback.print_exc()
         raise
