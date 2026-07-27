@@ -1,11 +1,13 @@
 import os
-import logging
 import sys
+import logging
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes, CallbackQueryHandler
 from dotenv import load_dotenv
-import requests
-from bs4 import BeautifulSoup
+
+# Print Python version for debugging
+print(f"🐍 Python version: {sys.version}")
+print(f"📂 Python executable: {sys.executable}")
 
 # 加载环境变量
 load_dotenv()
@@ -168,56 +170,6 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 """
     await update.message.reply_text(help_text, parse_mode="Markdown")
 
-async def about(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """发送关于信息"""
-    about_text = f"""
-🤖 *关于 QH 搜索机器人*
-
-━━━━━━━━━━━━━━━━━━━━━
-
-*强大的 Telegram 资源搜索引擎*
-*版本：* 1.0.0
-*用户名：* @{BOT_USERNAME}
-*开发者：* @hulian1688
-
-━━━━━━━━━━━━━━━━━━━━━
-
-*✨ 功能特色：*
-✅ 即时频道和群组搜索
-✅ 热门内容发现
-✅ 内联搜索支持
-✅ 24/7 全天候运行
-
-*❤️ 为Telegram社区打造*
-"""
-    await update.message.reply_text(about_text, parse_mode="Markdown")
-
-async def premium(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """发送高级服务信息"""
-    premium_text = f"""
-💎 *QH 高级会员服务*
-
-━━━━━━━━━━━━━━━━━━━━━
-
-*🚀 会员特权：*
-
-✅ *高级搜索* - 无限次搜索，深度资源扫描
-✅ *独家访问* - 私密频道，VIP专属内容
-✅ *会员支持* - 24小时客服，定制搜索
-
-━━━━━━━━━━━━━━━━━━━━━
-
-*💳 咨询价格：*
-📞 @hulian1688
-
-*立即升级高级会员！* 🚀
-"""
-    keyboard = [
-        [InlineKeyboardButton("💬 联系客服", url="https://t.me/hulian1688")],
-    ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    await update.message.reply_text(premium_text, reply_markup=reply_markup, parse_mode="Markdown")
-
 async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """处理按钮回调"""
     query = update.callback_query
@@ -233,16 +185,19 @@ async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ========== 主程序 ==========
 def main():
     """启动机器人"""
+    logger.info(f"🐍 Python version: {sys.version}")
+    
     if not TOKEN:
-        logger.error("未设置 BOT_TOKEN 环境变量！")
+        logger.error("❌ 未设置 BOT_TOKEN 环境变量！")
         return
     
-    logger.info(f"Python 版本: {sys.version}")
-    logger.info(f"正在启动 {BOT_NAME} Bot (@{BOT_USERNAME})...")
+    logger.info(f"🚀 正在启动 {BOT_NAME} Bot (@{BOT_USERNAME})...")
+    logger.info(f"🔑 Token starts with: {TOKEN[:10]}...")
     
     try:
         # 创建应用
         app = Application.builder().token(TOKEN).build()
+        logger.info("✅ Application built successfully")
         
         # 添加命令处理器
         app.add_handler(CommandHandler("start", start))
@@ -250,15 +205,12 @@ def main():
         app.add_handler(CommandHandler("search", search))
         app.add_handler(CommandHandler("help", help_command))
         app.add_handler(CommandHandler("帮助", help_command))
-        app.add_handler(CommandHandler("about", about))
-        app.add_handler(CommandHandler("关于", about))
-        app.add_handler(CommandHandler("premium", premium))
-        app.add_handler(CommandHandler("高级", premium))
         app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, inline_search))
         app.add_error_handler(error_handler)
         
+        logger.info("⏳ 机器人正在监听消息...")
+        
         # 启动轮询
-        logger.info("机器人已启动，正在监听消息...")
         app.run_polling(
             poll_interval=1.0,
             timeout=30,
@@ -266,7 +218,9 @@ def main():
         )
         
     except Exception as e:
-        logger.error(f"启动失败: {e}")
+        logger.error(f"❌ 启动失败: {e}")
+        import traceback
+        traceback.print_exc()
         raise
 
 if __name__ == "__main__":
